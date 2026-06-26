@@ -623,10 +623,10 @@ if [ -e transcripts_merge.success ] && [ -e protein2genome.align.success ] && [ 
         }
       }
     }END{
-      foreach $k(sort keys %don){
+      foreach $k(keys %don){
         print "don\t$k\t$don{$k}\n";
       }
-      foreach $k(sort keys %acc){
+      foreach $k(keys %acc){
         print "acc\t$k\t$acc{$k}\n";
       }
     }' |\
@@ -674,7 +674,7 @@ if [ -e transcripts_merge.success ] && [ -e protein2genome.align.success ] && [ 
             $output{"pair\t$f[0]\t$f[2]\t$f[1]\t$f[5]"}=$half_intron_size unless(defined($don{"$f[0] $f[2] $f[5]"}) || defined($acc{"$f[0] $f[1] $f[5]"}));
           }
         }
-        foreach my $k(sort keys %output){
+        foreach my $k(keys %output){
           print "$k\t$output{$k}\n";
         }
       }' | \
