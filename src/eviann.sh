@@ -7,7 +7,6 @@ CDSFILE="na"
 RNASEQ="na"
 ALT_EST="na"
 MITO_CTG_LIST_FILE="na"
-export BATCH_SIZE=1000000
 export MAX_INTRON=1
 export MIN_TPM=0.25
 export DEBUG=0
@@ -22,7 +21,7 @@ MYPATH="`( cd \"$MYPATH\" && pwd )`"
 PID=$$
 export PATH=$MYPATH:$PATH;
 set -o pipefail
-NUM_THREADS=1
+NUM_THREADS=8
 FUNCTIONAL=0
 MIN_ORF=75
 AB_INITIO=1
