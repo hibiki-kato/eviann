@@ -71,7 +71,7 @@ function usage {
   mix -- indicates the data is from the sample sequenced with both Illumina RNA-seq provided in fastq format and long reads (Iso-seq or Oxford Nanopore) in fasta/fastq format, expects three /path/filename before the tag
   bam_mix -- indicates the data is from the same sample sequenced with both Illumina RNA-seq provided in bam format and long reads (Iso-seq or Oxford Nanopore) in bam format, expects two /path/filename.bam before the tag
  
-  Absense of a tag assumes fastq tag and expects one or a pair of /path/filename.fastq on the line.
+  Absence of a tag assumes fastq tag and expects one or a pair of /path/filename.fastq on the line.
  "
  echo " -e FILE               fasta file with assembled transcripts from related species, default: none"
  echo " -p FILE               fasta file with protein sequences from (preferrably multiple) related species, uniprot proteins are used of this file is not provided, default: none"
@@ -80,14 +80,14 @@ function usage {
  echo "                         To use a different version, supply it with this switch. The database is available at:"
  echo "                         https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/complete/uniprot_sprot.fasta.gz"
  echo " -m INT                max intron size, default: auto-determined as sqrt(genome size in kb)*1000; this setting will override automatically estimated value"
- echo " --partial             include transcripts with partial (mising start or stop codon) CDS in the output"
+ echo " --partial             include transcripts with partial (missing start or stop codon) CDS in the output"
  echo " -d INT                set ploidy for the genome, this value is used in estimating the maximum intron size, default 2"
  echo " -c FILE               GFF file with CDS sequences for THIS genome to be used in annotations. Each CDS must have gene/transcript/mRNA AND exon AND CDS attributes"
  echo " --lncrnamintpm FLOAT  minimum TPM to include non-coding transcript into the annotation as lncRNA, default: 0.5"
  echo " --min_prot            minimum protein length (in amino-acids) for ab initio ORF detection without homology evidence, default: 75"
  echo " -f|--functional       perform functional annotation, default: not set"
  echo " --mito_contigs FILE   file with the list of input contigs to be treated as mitochondrial with different genetic code (stop is AGA,AGG,TAA,TAG)"
- echo " --extra FILE          extra features to add from an external GFF file.  Feautures MUST have gene records.  Any features that overlap with existing annotations will be ignored"
+ echo " --extra FILE          extra features to add from an external GFF file.  Features MUST have gene records.  Any features that overlap with existing annotations will be ignored"
  echo " --debug               keep intermediate output files, default: not set"
  echo " --verbose             verbose run, default: not set"
  echo " --version             report version and exit."
