@@ -144,6 +144,8 @@ do
         -c|--cds)
             CDSFILE="$2"
             if [ ! -s $CDSFILE ];then error_exit "external CDS file $CDSFILE is empty or does not exist!";fi
+            #force re-running merge
+            rm -f merge.success
             shift
             ;;
         -d|--ploidy)
