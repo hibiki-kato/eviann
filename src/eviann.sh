@@ -947,6 +947,7 @@ if [ -e merge.success ] && [ ! -e ab_initio.success ] && [ $AB_INITIO -gt 0 ];th
             $flag=0;
             $flag=1 if(defined($h{$1}));
             if($F[2] eq "transcript"){
+              $F[2]="gene";
               $out=join("\t",@F[0..7])."\tID=$1\n";
             }else{
               $out=join("\t",@F[0..7])."\tParent=$1\n";$F[2]="CDS";$out.=join("\t",@F[0..7])."\tParent=$1\n";
