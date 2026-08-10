@@ -188,7 +188,7 @@ do
             set -x
             ;;
         --version)
-            echo "version 2.0.4"
+            echo "version 2.0.6"
             exit 0
             ;;
         --debug)
@@ -932,10 +932,27 @@ if [ -e merge.success ] && [ ! -e ab_initio.success ] && [ $AB_INITIO -gt 0 ];th
         cat batch_*.fasta.minus.gff |perl -F'\t' -ane '{$F[0]=(split(/\s/,$F[0]))[0];$F[2]="exon";chomp($F[8]);$F[8]="transcript_id \"$F[8]r\"\n";print join("\t",@F)}') |\
       perl -F'\t' -ane 'BEGIN{$n=0}{$n++ if($F[2] eq "transcript");if($F[8]=~/transcript_id "(\S+)"/){print join("\t",@F[0..7]),"\ttranscript_id \"$1.$n\"\n"}}' > $GENOME.snap.combined.gtf.tmp && \
     mv $GENOME.snap.combined.gtf.tmp ../$GENOME.snap.combined.gtf) && \
-  gffread --ids \
-    <(trmap -c '=' $GENOME.palign.fixed.gff $GENOME.snap.combined.gtf | awk '{if($1~/^>/) print substr($1,2)}';\
-      trmap -c 'k=' $GENOME.spliceFiltered.gtf $GENOME.snap.combined.gtf | awk '{if($1~/^>/) print substr($1,2)}') $GENOME.snap.combined.gtf |\
-    perl -F'\t' -ane '{if($F[2] eq "transcript"){$F[2]="gene";}if($F[2] eq "exon"){$F[2]="CDS";print join("\t",@F);$F[2]="exon";}print join("\t",@F)}' > $GENOME.snap.filtered.gff.tmp && \
+  #here we only keep new CDSs if they matched transcripts or proteins
+  cat \
+    <(trmap -c '=' $GENOME.palign.fixed.gff $GENOME.snap.combined.gtf;trmap -c 'k=' $GENOME.spliceFiltered.gtf $GENOME.snap.combined.gtf) |\
+    perl -ane '{$h{substr($F[0],1)}=1 if($F[0]=~/^>/);}
+      END{
+        open(FILE,"'$GENOME'.snap.combined.gtf");
+        while($line=<FILE>){
+          @F=split(/\t/,$line);
+          chomp($line);
+          if($F[8] =~ /transcript_id "(\S+)"/){
+            $flag=0;
+            $flag=1 if(defined($h{$1}));
+            if($F[2] eq "transcript"){
+              $out=join("\t",@F[0..7])."\tID=$1\n";
+            }else{
+              $out=join("\t",@F[0..7])."\tParent=$1\n";$F[2]="CDS";$out.=join("\t",@F[0..7])."\tParent=$1\n";
+            }
+          } 
+          print $out if($flag);
+        }
+      }' > $GENOME.snap.filtered.gff.tmp && \
   mv $GENOME.snap.filtered.gff.tmp $GENOME.snap.filtered.gff && \
 #only do this if there are any CDS matches between ab initio and transcripts
   if [ -s $GENOME.snap.filtered.gff ];then
