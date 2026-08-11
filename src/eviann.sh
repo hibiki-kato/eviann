@@ -590,7 +590,7 @@ if [ -e transcripts_merge.success ] && [ -e protein2genome.align.success ] && [ 
   mv $GENOME.utrs.gff.tmp $GENOME.utrs.gff && \
   perl -F'\t' -ane '{
       if($F[2] eq "mRNA"){
-        $protid="$2:$1" if($F[8]=~/EvidenceProteinID=(\S+);EvidenceTranscriptID=(\S+);StartCodon=/);
+        $protid="$2:$1" if($F[8]=~/evidence_protein_id=(\S+);evidence_transcript_id=(\S+);start_codon=/);
       }elsif($F[2] eq "CDS"){
         $F[8]="Parent=$protid\n";
         print join("\t",@F);
@@ -606,7 +606,7 @@ if [ -e transcripts_merge.success ] && [ -e protein2genome.align.success ] && [ 
   rm -f $GENOME.coding.pwm && \
   gffread -F --tlf $GENOME.k.gff |\
     perl -F'\t' -ane 'BEGIN{$n=1}{
-      if($F[8]=~/^ID=(\S+);exonCount=(\S+);exons=(\S+);CDS=(\d+):(\d+);(.+);EvidenceTranscriptID=(\S+);StartCodon=(.+);Class==;Evidence=complete;/){
+      if($F[8]=~/^ID=(\S+);exonCount=(\S+);exons=(\S+);CDS=(\d+):(\d+);(.+);evidence_transcript_id=(\S+);start_codon=(.+);class==;evidence=complete;/){
         $tid=$7;
         $exons=$3;
         @f=split(/-/,$exons);
@@ -737,7 +737,7 @@ if [ -e transcripts_merge.success ] && [ -e protein2genome.align.success ] && [ 
   mv $GENOME.k.gff.tmp $GENOME.k.gff && \
 
 #here we detect and remove readthrough trancripts that were not trimmed previously
-  perl -F'\t' -ane '{unless($F[2] eq "gene" || $F[0]=~/^#/){if($F[8] =~ /^ID=(\S+);Parent=(\S+);EvidenceProteinID=(\S+);EvidenceTranscriptID=(\S+);StartCodon/){$F[8]="ID=$4";$tid=$4;}else{$F[8]="Parent=$tid"}print join("\t",@F),"\n"}}' $GENOME.k.gff |\
+  perl -F'\t' -ane '{unless($F[2] eq "gene" || $F[0]=~/^#/){if($F[8] =~ /^ID=(\S+);Parent=(\S+);evidence_protein_id=(\S+);evidence_transcript_id=(\S+);start_codon/){$F[8]="ID=$4";$tid=$4;}else{$F[8]="Parent=$tid"}print join("\t",@F),"\n"}}' $GENOME.k.gff |\
     gffread --cluster-only |\
     detect_readthroughs.pl > $GENOME.readthroughs.txt.tmp && \
   mv $GENOME.readthroughs.txt.tmp $GENOME.readthroughs.txt && \
@@ -890,7 +890,7 @@ if [ -e merge.success ] && [ ! -e ab_initio.success ] && [ $AB_INITIO -gt 0 ];th
   gff3_to_zff.pl ab_initio/$GENOME.training.fa <( \
   perl -F'\t' -ane '{
     if($F[2] eq "mRNA"){
-      if($F[8]=~/^ID=(\S+)-mRNA-1;Parent=(\S+);EvidenceProteinID=(\S+);EvidenceTranscriptID=(\S+);StartCodon=(\S\S\S);StopCodon=(\S\S\S);Class=(=|k);/){
+      if($F[8]=~/^ID=(\S+)-mRNA-1;Parent=(\S+);evidence_protein_id=(\S+);evidence_transcript_id=(\S+);start_codon=(\S\S\S);stop_codon=(\S\S\S);class=(=|k);/){
         $flag=1;
         $F[2]="gene";
         $parent=$2;
@@ -903,7 +903,7 @@ if [ -e merge.success ] && [ ! -e ab_initio.success ] && [ $AB_INITIO -gt 0 ];th
       print if($flag && not($F[2] eq "gene"));
     }
   }' $GENOME.k.gff) > ab_initio/$GENOME.k.zff && \
-  gffread --nids <(perl -F'\t' -ane '{if($F[8] =~/EvidenceTranscriptID=(\S+);StartCodon=/){print "$1\n";}}'  $GENOME.k.gff) $GENOME.spliceFiltered.gtf > $GENOME.spliceFiltered.nomatch.gtf.tmp && \
+  gffread --nids <(perl -F'\t' -ane '{if($F[8] =~/evidence_transcript_id=(\S+);start_codon=/){print "$1\n";}}'  $GENOME.k.gff) $GENOME.spliceFiltered.gtf > $GENOME.spliceFiltered.nomatch.gtf.tmp && \
   mv $GENOME.spliceFiltered.nomatch.gtf.tmp $GENOME.spliceFiltered.nomatch.gtf && \
   (cd ab_initio && \
     fathom -categorize 400 $GENOME.k.zff $GENOME.training.fa && \
@@ -993,7 +993,7 @@ if [ -e merge.success ] && [ ! -e loci.success ];then
     awk -F'\t' '{if($3=="locus"){split($9,a,";");print substr(a[1],5)" "substr(a[2],13)}}' > $GENOME.locus_transcripts.tmp && \
   mv $GENOME.locus_transcripts.tmp $GENOME.locus_transcripts && \
   mv $GENOME.k.std.gff.tmp $GENOME.k.std.gff && \
-  gffread -F --keep-exon-attrs --keep-genes --sort-alpha <(sed 's/Class=.;//' $GENOME.k.std.gff | reassign_transcripts.pl $GENOME.locus_transcripts) $GENOME.u.gff|\
+  gffread -F --keep-exon-attrs --keep-genes --sort-alpha <(sed 's/class=.;//' $GENOME.k.std.gff | reassign_transcripts.pl $GENOME.locus_transcripts) $GENOME.u.gff|\
     awk -F '\t' '{if($0 ~ /^# gffread/){print "# EviAnn automated annotation"}else{if($3!=prev){counter=1}if($9 ~ /^Parent=/){print $0";ID="substr($9,8)":"$3":"counter;counter++;}else{print $0}prev=$3;}}' > $GENOME.gff.tmp && \
   mv $GENOME.gff.tmp $GENOME.gff  && \
   touch loci.success && rm -f pseudo_detect.success functional.success || error_exit "Merging transcript and protein evidence failed."

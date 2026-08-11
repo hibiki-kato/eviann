@@ -46,7 +46,7 @@ while($line=<FILE>){
 my $num_complete=0;
 open(FILE,$k_file);
 while($line=<FILE>){
-  $num_complete++ if($line=~/Evidence=complete/);
+  $num_complete++ if($line=~/evidence=complete/);
 }
 
 my %mito_contigs=(); 

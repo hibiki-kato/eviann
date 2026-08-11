@@ -1,20 +1,5 @@
 #!/usr/bin/env perl
 #
-## EviAnn automated annotation
-#NC_004353.4     EviAnn  gene    929     5036    .       +       .       ID=XLOC_000001;geneID=XLOC_000001;type=protein_coding
-#NC_004353.4     EviAnn  mRNA    930     5036    .       +       .       ID=XLOC_000001-mRNA-1;Parent=XLOC_000001;EvidenceProteinID=XP_002133780.1;EvidenceTranscriptID=MSTRG_00000479:2:3.681515;StartCodon=atg;StopCodon=taa;Class==;Evidence=complete;
-#NC_004353.4     EviAnn  exon    930     1079    .       +       .       ID=XLOC_000001-mRNA-1:exon:1;Parent=XLOC_000001-mRNA-1
-#NC_004353.4     EviAnn  exon    1144    1410    .       +       .       ID=XLOC_000001-mRNA-1:exon:2;Parent=XLOC_000001-mRNA-1
-#NC_004353.4     EviAnn  exon    1768    3851    .       +       .       ID=XLOC_000001-mRNA-1:exon:3;Parent=XLOC_000001-mRNA-1
-#NC_004353.4     EviAnn  exon    4353    4527    .       +       .       ID=XLOC_000001-mRNA-1:exon:4;Parent=XLOC_000001-mRNA-1
-#NC_004353.4     EviAnn  exon    4592    4824    .       +       .       ID=XLOC_000001-mRNA-1:exon:5;Parent=XLOC_000001-mRNA-1
-#NC_004353.4     EviAnn  exon    4875    5036    .       +       .       ID=XLOC_000001-mRNA-1:exon:6;Parent=XLOC_000001-mRNA-1
-#NC_004353.4     EviAnn  cds     930     1079    .       +       .       ID=XLOC_000001-mRNA-1:cds:1;Parent=XLOC_000001-mRNA-1
-#NC_004353.4     EviAnn  cds     1144    1410    .       +       .       ID=XLOC_000001-mRNA-1:cds:2;Parent=XLOC_000001-mRNA-1
-#NC_004353.4     EviAnn  cds     1768    3851    .       +       .       ID=XLOC_000001-mRNA-1:cds:3;Parent=XLOC_000001-mRNA-1
-#NC_004353.4     EviAnn  cds     4353    4527    .       +       .       ID=XLOC_000001-mRNA-1:cds:4;Parent=XLOC_000001-mRNA-1
-#NC_004353.4     EviAnn  cds     4592    4824    .       +       .       ID=XLOC_000001-mRNA-1:cds:5;Parent=XLOC_000001-mRNA-1
-#NC_004353.4     EviAnn  cds     4875    4995    .       +       .       ID=XLOC_000001-mRNA-1:cds:6;Parent=XLOC_000001-mRNA-1
 
 
 my @cds=();

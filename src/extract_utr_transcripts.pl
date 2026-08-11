@@ -1,7 +1,4 @@
 #!/usr/bin/env perl
-#NC_015889.1     EviAnn  mRNA    51      3703    .       +       .       ID=XLOC_000001-mRNA-1;Parent=XLOC_000001;EvidenceProteinID=sp|Q6EMT1.1|NU1M_BOSIN:RecName:_Full_NADH-ubiquinone_oxidoreductase_chain_1__AltName:_Full_NADH_dehydrogenase_subunit_1;EvidenceTranscriptID=MSTRG_00000010:4:4880.048828;StartCodon=ATG;StopCodon=TGA;Class=k;Evidence=complete
-#NC_015889.1     EviAnn  exon    51      3703    .       +       .       Parent=XLOC_000001-mRNA-1
-#NC_015889.1     EviAnn  CDS     2743    3000    .       +       0       Parent=XLOC_000001-mRNA-1
 
 my $min_exons=0;
 $min_exons=$ARGV[0] if($ARGV[0]>0);
@@ -34,7 +31,7 @@ while($line=<STDIN>){
     }
     @threeUTR=();
     @fiveUTR=();
-    $tid=$1 if($gff_fields[8] =~ /EvidenceTranscriptID=(\S+);StartCodon=/);
+    $tid=$1 if($gff_fields[8] =~ /evidence_transcript_id=(\S+);start_codon=/);
     $tline=$line;
     $end5UTR{$tid}=0;
     $end3UTR{$tid}=0;

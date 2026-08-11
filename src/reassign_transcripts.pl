@@ -20,7 +20,7 @@ while($line=<STDIN>){
     next;
   }
   if($f[2] eq "mRNA"){
-    if($f[8] =~ /^ID=(\S+);EvidenceProteinID/){
+    if($f[8] =~ /^ID=(\S+);evidence_protein_id/){
       #this is protein coding transcript 
       $tr=$1;
       ($lid)=split(/-/,$tr,1);

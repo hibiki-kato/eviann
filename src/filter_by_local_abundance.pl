@@ -12,7 +12,7 @@ $class_factor{"q"}=2;
 #first we read the k gff file -- these are transcritps that yielded complete proteins
 open(FILE,$GFF_K);
 while($line=<FILE>){
-  $full_cds_transcripts{$1}=1 if($line=~/EvidenceTranscriptID=(\S+:\S+:\S+);Start/);
+  $full_cds_transcripts{$1}=1 if($line=~/evidence_transcript_id=(\S+:\S+:\S+);start/);
 }
 
 my %transcripts_at_xloc_same_cds=();
