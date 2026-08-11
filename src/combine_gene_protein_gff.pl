@@ -1032,7 +1032,7 @@ for my $locus(keys %transcripts_cds_loci){
         $evidence_type="transcript_only" if($protID =~ /^XLOC_/);
         $evidenceProtID=(split(/:/,$protID))[0];
         $evidenceProtID.=":".$protein_func{$evidenceProtID} if(defined($protein_func{$evidenceProtID}));
-        push(@output,$gff_fields[0]."\tEviAnn\tmRNA\t$transcript_start\t$transcript_end\t".join("\t",@gff_fields_t[5..7])."\tID=$parent$transcript_index;Parent=$geneID;EvidenceProteinID=$evidenceProtID;EvidenceTranscriptID=$transcriptID;StartCodon=$transcript_cds_start_codon{$t};StopCodon=$transcript_cds_end_codon{$t};Class=$class;Evidence=$evidence_type;Num_exons=".($#{$transcript_gff{$t}}+1));
+        push(@output,$gff_fields[0]."\tEviAnn\tmRNA\t$transcript_start\t$transcript_end\t".join("\t",@gff_fields_t[5..7])."\tID=$parent$transcript_index;Parent=$geneID;evidence_protein_id=$evidenceProtID;evidence_transcript_id=$transcriptID;start_codon=$transcript_cds_start_codon{$t};stop_codon=$transcript_cds_end_codon{$t};class=$class;evidence=$evidence_type;num_exons=".($#{$transcript_gff{$t}}+1));
 #output exons
         my $i=1;
         my $first_j=0;
@@ -1181,7 +1181,7 @@ for my $locus(keys %transcripts_only_loci){
     print "DEBUG output u transcript ",substr($attributes_t[0],3)," original $transcriptID $original_name,$num_samples,$tpm\n";
     $transcript_index++;
     my $type=$final_pass==1 ? "lnc_RNA" : "mRNA";
-    push(@output,"$gff_fields_t[0]\tEviAnn\t$type\t".join("\t",@gff_fields_t[3..7])."\tID=$parent$transcript_index;Parent=$geneID;EvidenceTranscriptID=$transcriptID;geneID=$geneID");
+    push(@output,"$gff_fields_t[0]\tEviAnn\t$type\t".join("\t",@gff_fields_t[3..7])."\tID=$parent$transcript_index;Parent=$geneID;evidence_transcript_id=$transcriptID;geneID=$geneID");
     my $i=1;
     for my $x(@{$transcript_gff_u{$t}}){
       my @gff_fields=split(/\t/,$x);
