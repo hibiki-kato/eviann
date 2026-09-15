@@ -271,11 +271,9 @@ if [ -s $CDSFILE ];then
 fi
 
 #checking if dependencies are installed
-if [ -s $MYPATH/ufasta ];then
-  UFASTA=$MYPATH/ufasta
-else
-  UFASTA=$MYPATH/ufasta.pl
-fi
+# bundled tools are looked up on PATH ($MYPATH is already first on it),
+# so eviann.sh also works from a source checkout with binaries elsewhere
+UFASTA=$(command -v ufasta || command -v ufasta.pl) || error_exit "ufasta not found on PATH"
 log "ufasta is $UFASTA"
 log "Checking dependencies"
 for prog in $(echo "stringtie gffread gffcompare miniprot TransDecoder.Predict TransDecoder.LongOrfs");do
@@ -287,10 +285,10 @@ for prog in $(echo "minimap2 hisat2 hisat2-build samtools makeblastdb blastp");d
   which $prog || error_exit "ERROR! $prog not found the the PATH!";
 done
 echo "Checking if TransDecoder is properly installed and works"
-if ! $MYPATH/TransDecoder.Predict --version 1>/dev/null;then 
+if ! TransDecoder.Predict --version 1>/dev/null;then 
   error_exit "TransDecoder seems to be missing some Perl dependencies."
 fi
-if ! $MYPATH/TransDecoder.Predict --version 1>/dev/null;then
+if ! TransDecoder.Predict --version 1>/dev/null;then
   error_exit "TransDecoder seems to be missing some Perl dependencies."
 fi
 log "All dependencies checks passed"
@@ -375,15 +373,15 @@ if [ ! -e transcripts_assemble.success ];then
     }' $RNASEQ >> hisat_stringtie.sh
   fi
   echo "#!/bin/bash
-  $MYPATH/stringtie -p $NUM_THREADS \$1 | awk -F '\t' 'BEGIN{flag=0}{if(\$3==\"transcript\"){n=split(\$9,a,\";\");for(i=1;i<=n;i++){if(a[i] ~ /TPM/){ m=split(a[i],b,\"\\\"\");tpm=b[m-1];}else if(a[i] ~ /FPKM/){ m=split(a[i],b,\"\\\"\");fpkm=b[m-1];}}if(fpkm > $MIN_TPM || tpm > $MIN_TPM ) flag=1; else flag=0;}if(flag){print \$0}}' > \$1.gtf.filtered.tmp && \\
+  stringtie -p $NUM_THREADS \$1 | awk -F '\t' 'BEGIN{flag=0}{if(\$3==\"transcript\"){n=split(\$9,a,\";\");for(i=1;i<=n;i++){if(a[i] ~ /TPM/){ m=split(a[i],b,\"\\\"\");tpm=b[m-1];}else if(a[i] ~ /FPKM/){ m=split(a[i],b,\"\\\"\");fpkm=b[m-1];}}if(fpkm > $MIN_TPM || tpm > $MIN_TPM ) flag=1; else flag=0;}if(flag){print \$0}}' > \$1.gtf.filtered.tmp && \\
     mv \$1.gtf.filtered.tmp \$1.gtf  " > run_stringtie.sh && \
     chmod 0755 run_stringtie.sh && \
   echo "#!/bin/bash
-  $MYPATH/stringtie -p $NUM_THREADS \$1 -L -o \$1.gtf.tmp && \\
+  stringtie -p $NUM_THREADS \$1 -L -o \$1.gtf.tmp && \\
     mv \$1.gtf.tmp \$1.gtf " > run_stringtie_lr.sh && \
     chmod 0755 run_stringtie_lr.sh && \
   echo "#!/bin/bash
-  $MYPATH/stringtie -p $NUM_THREADS \$1 \$2 --mix | awk -F '\t' 'BEGIN{flag=0}{if(\$3==\"transcript\"){n=split(\$9,a,\";\");for(i=1;i<=n;i++){if(a[i] ~ /TPM/){ m=split(a[i],b,\"\\\"\");tpm=b[m-1];}else if(a[i] ~ /FPKM/){ m=split(a[i],b,\"\\\"\");fpkm=b[m-1];}}if(fpkm > $MIN_TPM || tpm > $MIN_TPM ) flag=1; else flag=0;}if(flag){print \$0}}' > \$1.gtf.filtered.tmp && \\
+  stringtie -p $NUM_THREADS \$1 \$2 --mix | awk -F '\t' 'BEGIN{flag=0}{if(\$3==\"transcript\"){n=split(\$9,a,\";\");for(i=1;i<=n;i++){if(a[i] ~ /TPM/){ m=split(a[i],b,\"\\\"\");tpm=b[m-1];}else if(a[i] ~ /FPKM/){ m=split(a[i],b,\"\\\"\");fpkm=b[m-1];}}if(fpkm > $MIN_TPM || tpm > $MIN_TPM ) flag=1; else flag=0;}if(flag){print \$0}}' > \$1.gtf.filtered.tmp && \\
     mv \$1.gtf.filtered.tmp \$1.gtf  " > run_stringtie_mix.sh && \
   chmod 0755 run_stringtie.sh && \
   chmod 0755 run_stringtie_lr.sh && \
