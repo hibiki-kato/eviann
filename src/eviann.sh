@@ -86,6 +86,7 @@ function usage {
  echo " --untrusted-cds       apply splice-site filtering to unmatched external CDSs supplied with -c"
  echo " --lncrnamintpm FLOAT  minimum TPM to include non-coding transcript into the annotation as lncRNA, default: 0.5"
  echo " --min_prot            minimum protein length (in amino-acids) for ab initio ORF detection without homology evidence, default: 75"
+ echo " --no-snap             disable SNAP CDS prediction"
  echo " -f|--functional       perform functional annotation, default: not set"
  echo " --mito_contigs FILE   file with the list of input contigs to be treated as mitochondrial with different genetic code (stop is AGA,AGG,TAA,TAG)"
  echo " --extra FILE          extra features to add from an external GFF file.  Features MUST have gene records.  Any features that overlap with existing annotations will be ignored"
@@ -178,6 +179,11 @@ do
         --min_prot)
             MIN_ORF="$2"
             shift
+            ;;
+        --no-snap)
+            AB_INITIO=0
+            #force re-running merge so runs previously containing SNAP models are rebuilt without SNAP
+            rm -f merge.success
             ;;
         --mito_contigs)
             MITO_CTG_LIST_FILE="$2"
