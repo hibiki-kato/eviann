@@ -504,7 +504,7 @@ if [ -e transcripts_merge.success ] && [ -e protein2genome.align.success ] && [ 
     error_exit "No transcripts useful for annotation, please check your inputs!"
   fi && \
   if [ $UNTRUSTED_CDS -eq 1 ] && [ ! -s $GENOME.$PROTEIN.uniq.palign.gff ];then
-    error_exit "--untrusted-cds requires protein alignments to train splice-site models independently of external CDSs"
+    error_exit "--untrusted-cds has no effect without protein alignments: external CDSs supplied alone are treated as protein evidence and already pass the standard splice filter"
   fi && \
   if [ -s $GENOME.$PROTEIN.uniq.palign.gff ];then
     log "Using protein alignments" && \
