@@ -1,10 +1,12 @@
 #!/usr/bin/env perl
 #This code adds gene and CDS record for every locus in GFF file
 use Getopt::Long;
+use IPC::Open2;
 my $output_prefix="output";
 my $annotated_gff=$output_prefix.".protref.annotated.gff";
 my $transdecoder_start_stop=$output_prefix.".fixed_cds.txt";
 my $pwms;
+my $cnn_model_dir;
 my $names=$output_prefix.".original_names.txt";
 my $ext_length=48;
 my $keep_contains=0;
@@ -20,6 +22,7 @@ GetOptions ("prefix=s"   => \$output_prefix,      # string
     "transdecoder=s" => \$transdecoder_start_stop, 
     "proteins=s" => \$proteins,
     "pwms=s" => \$pwms,
+    "cnn-model-dir=s" => \$cnn_model_dir,
     "loci=s" => \$loci_file,
     "names=s" => \$names, 
     "mito=s" => \$mito_file,
@@ -361,6 +364,16 @@ while(my $line=<FILE>){
   $transcript_cds_modified{$geneID}=1;
 }
 
+#CNN splice model (eviann.sh --splice-model cnn): a scoring coprocess replaces the PWMs
+#in the terminal-extension checks; protocol in cnn_splice_score_sites.py
+my ($cnn_out,$cnn_in);
+if(defined($cnn_model_dir)){
+  print "DEBUG Starting CNN splice-site scorer on $cnn_model_dir\n";
+  my $cnn_pid=open2($cnn_out,$cnn_in,"cnn_splice_score_sites.py","--model-dir",$cnn_model_dir) or die("Failed to start cnn_splice_score_sites.py");
+  select((select($cnn_in),$|=1)[0]);
+  undef $pwms;
+}
+
 #we load SNAP HMMs
 if(defined($pwms)){
   print "DEBUG Loading PWMs\n";
@@ -400,8 +413,8 @@ if(defined($pwms)){
       }
     }
   }
-}else{
-  #no extension
+}elsif(not(defined($cnn_model_dir))){
+  #no splice model: no extension
   $ext_length=0;
 }
 
@@ -1281,7 +1294,19 @@ sub fix_start_stop_codon_ext{
     $transcript_5pext=substr($transcript_5pext,$cds_start_on_transcript_ext);
     print "DEBUG checking 5p extension $transcript_5pext\n";
     #check the extension for AG -- acceptor sites, if found, do not extend
-    if(defined($pwms)){
+    if(defined($cnn_model_dir)){
+      my @offsets=();
+      for(my $j=3;$j<length($transcript_5pext)-2;$j++){
+        push(@offsets,$j+2) if(uc(substr($transcript_5pext,$j,2)) eq "AG");#first exonic base after the AG
+      }
+      if(@offsets){
+        my @logits=cnn_site_logits("acceptor",uc($transcript_5pext.$transcript_seq),\@offsets);
+        for(my $i=0;$i<=$#offsets;$i++){
+          print "DEBUG CNN acceptor at ",$offsets[$i]-2," in $transcript_5pext logit $logits[$i]\n";
+          $found_acceptor=1 if($logits[$i] > 0);
+        }
+      }
+    }elsif(defined($pwms)){
       for(my $j=3;$j<length($transcript_5pext)-2;$j++){
         if(uc(substr($transcript_5pext,$j,2)) eq "AG"){
           my $index5=$j;
@@ -1325,7 +1350,19 @@ sub fix_start_stop_codon_ext{
     $transcript_3pext_save=$transcript_3pext;
     $transcript_3pext=substr($transcript_3pext,0,$cds_end_on_transcript_ext-length($transcript_seq)-$ext_length);
     print "DEBUG checking 3p extension $transcript_3pext\n";
-    if(defined($pwms)){
+    if(defined($cnn_model_dir)){
+      my @offsets=();
+      for(my $j=0;$j<length($transcript_3pext)-3;$j++){
+        push(@offsets,length($transcript_seq)+$j) if(uc(substr($transcript_3pext,$j,2)) eq "GT");#first intron base
+      }
+      if(@offsets){
+        my @logits=cnn_site_logits("donor",uc($transcript_seq.$transcript_3pext_save),\@offsets);
+        for(my $i=0;$i<=$#offsets;$i++){
+          print "DEBUG CNN donor at ",$offsets[$i]-length($transcript_seq)," in $transcript_3pext logit $logits[$i]\n";
+          $found_donor=1 if($logits[$i] > 0);
+        }
+      }
+    }elsif(defined($pwms)){
       my $ext_seq=uc($transcript_seq.$transcript_3pext_save);
       for(my $j=0;$j<length($transcript_3pext)-3;$j++){
         if(uc(substr($transcript_3pext,$j,2)) eq "GT"){
@@ -1580,3 +1617,14 @@ sub score_start{
   return($score);
 }
 
+#ask the CNN coprocess for one logit per offset; logit > 0 = genuine site
+sub cnn_site_logits{
+  my ($kind,$seq,$offsets)=@_;
+  print $cnn_in "$kind\t$seq\t",join(",",@$offsets),"\n";
+  my $line=<$cnn_out>;
+  die("CNN splice-site scorer exited unexpectedly") unless(defined($line));
+  chomp($line);
+  my @logits=split(/\t/,$line);
+  die("CNN splice-site scorer returned ",scalar(@logits)," scores for ",scalar(@$offsets)," sites") unless($#logits == $#$offsets);
+  return @logits;
+}
