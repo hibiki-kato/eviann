@@ -15,6 +15,7 @@ export PARTIAL=0
 export LNCRNATPM=0.5
 export WAM_THRESHOLD=-0.5
 export EXON_BASES=3
+SPLICE_MODEL="markov"
 EXTRA_GFF="na"
 UNIPROT="$PWD/uniprot_sprot.fasta"
 MYPATH="`dirname \"$0\"`"
@@ -87,6 +88,8 @@ function usage {
  echo " --lncrnamintpm FLOAT  minimum TPM to include non-coding transcript into the annotation as lncRNA, default: 0.5"
  echo " --min_prot            minimum protein length (in amino-acids) for ab initio ORF detection without homology evidence, default: 75"
  echo " --no-snap             disable SNAP CDS prediction"
+ echo " --splice-model NAME   splice-site model for transcript filtering and CDS extension checks: markov (default) or cnn"
+ echo "                         cnn trains donor/acceptor CNNs (PyTorch) on the same sites; extra training options via CNN_SPLICE_TRAIN_ARGS"
  echo " -f|--functional       perform functional annotation, default: not set"
  echo " --mito_contigs FILE   file with the list of input contigs to be treated as mitochondrial with different genetic code (stop is AGA,AGG,TAA,TAG)"
  echo " --extra FILE          extra features to add from an external GFF file.  Features MUST have gene records.  Any features that overlap with existing annotations will be ignored"
@@ -108,6 +111,16 @@ function error_exit {
     dddd=$(date)
     echo -e "${RC}[$dddd]${NC} $1" >&2
     exit "${2:-1}"
+}
+
+#splice-site scoring dispatch: markov = Perl WAM scorer, cnn = PyTorch CNN
+#arguments: transcripts GFF (gffread -F style), output file
+function score_splice_sites {
+  if [ $SPLICE_MODEL = "cnn" ];then
+    cnn_splice_score_transcripts.py "$1" $GENOMEFILE $GENOME.cnn_splice > "$2"
+  else
+    score_transcripts_with_hmms.pl "$1" $GENOMEFILE $GENOME.coding.pwm $GENOME.neg.pwm $EXON_BASES > "$2"
+  fi
 }
 if [ $# -lt 1 ];then
   usage
@@ -178,6 +191,11 @@ do
             ;;
         --min_prot)
             MIN_ORF="$2"
+            shift
+            ;;
+        --splice-model)
+            SPLICE_MODEL="$2"
+            case $SPLICE_MODEL in markov|cnn) ;; *) error_exit "unknown splice model $SPLICE_MODEL, use markov or cnn";; esac
             shift
             ;;
         --no-snap)
@@ -502,6 +520,13 @@ if [ ! -e protein2genome.align.success ];then
   touch protein2genome.align.success || error_exit "Alignment of proteins to the genome with miniprot failed, please check miniprot.err"
 fi
 
+#splice model handed to combine_gene_protein_gff.pl for CDS terminal-extension checks
+if [ $SPLICE_MODEL = "cnn" ];then
+  SPLICE_MODEL_ARGS="--cnn-model-dir $GENOME.cnn_splice"
+else
+  SPLICE_MODEL_ARGS="--pwms $GENOME.coding.pwm"
+fi
+
 if [ -e transcripts_merge.success ] && [ -e protein2genome.align.success ] && [ ! -e merge.success ];then
   log "Deriving gene models from protein and transcript alignments" && \
   if [ ! -s $GENOME.merged.gtf ];then
@@ -646,6 +671,7 @@ if [ -e transcripts_merge.success ] && [ -e protein2genome.align.success ] && [ 
       }
     }' |\
     tee >(wc -l > $GENOME.num_introns.txt) | \
+    tee $GENOME.sites.pos.tsv | \
     compute_junction_scores_bed.pl $GENOMEFILE $EXON_BASES 1>$GENOME.coding.pwm.tmp 2>$GENOME.coding.pwm.err && \
   mv $GENOME.coding.pwm.tmp $GENOME.coding.pwm && \
   rm -f $GENOME.neg.pwm && \
@@ -693,8 +719,23 @@ if [ -e transcripts_merge.success ] && [ -e protein2genome.align.success ] && [ 
           print "$k\t$output{$k}\n";
         }
       }' | \
+    tee $GENOME.sites.neg.tsv | \
     compute_junction_scores_bed.pl $GENOMEFILE $EXON_BASES 1>$GENOME.neg.pwm.tmp 2>$GENOME.neg.pwm.err && \
     mv $GENOME.neg.pwm.tmp $GENOME.neg.pwm
+  fi
+
+#CNN splice model: trained once per run directory from the same positive/negative sites;
+#a -c rerun reuses the model so external CDSs are judged by the evidence-trained model
+  if [ $SPLICE_MODEL = "cnn" ];then
+    if [ ! -s $GENOME.sites.neg.tsv ];then error_exit "--splice-model cnn needs RNA-seq evidence for negative training sites";fi
+    if [ -s $GENOME.cnn_splice/donor.pt ] && [ -s $GENOME.cnn_splice/acceptor.pt ];then
+      log "Reusing CNN splice model in $GENOME.cnn_splice"
+    else
+      log "Training CNN splice-site models" && \
+      rm -rf $GENOME.cnn_splice.tmp && \
+      cnn_splice_train.py --positive-sites $GENOME.sites.pos.tsv --negative-sites $GENOME.sites.neg.tsv --genome $GENOMEFILE --model-dir $GENOME.cnn_splice.tmp $CNN_SPLICE_TRAIN_ARGS 2>$GENOME.cnn_splice.err && \
+      rm -rf $GENOME.cnn_splice && mv $GENOME.cnn_splice.tmp $GENOME.cnn_splice || error_exit "CNN splice model training failed, see $GENOME.cnn_splice.err"
+    fi
   fi
 
 #score coding start site patterns
@@ -702,7 +743,7 @@ if [ -e transcripts_merge.success ] && [ -e protein2genome.align.success ] && [ 
 #  mv $GENOME.start.pwm.tmp $GENOME.start.pwm && \
 
 #score transcripts with Markov WAM weights
-  score_transcripts_with_hmms.pl <(gffread -F $GENOME.gtf) $GENOMEFILE $GENOME.coding.pwm $GENOME.neg.pwm $EXON_BASES 1>$GENOME.transcript_splice_scores.txt.tmp 2>$GENOME.transcript_splice_scores.err && \
+  score_splice_sites <(gffread -F $GENOME.gtf) $GENOME.transcript_splice_scores.txt.tmp 2>$GENOME.transcript_splice_scores.err && \
   mv $GENOME.transcript_splice_scores.txt.tmp $GENOME.transcript_splice_scores.txt && \
   perl -F'\t' -ane '{if($F[8] =~ /^transcript_id "(\S+)"; gene_id "(\S+)"; xloc "(\S+)"; cmp_ref "(\S+)"; class_code "(k|=|c)"; tss_id/){print "$1 $4 $5\n"}}' $GENOME.protref.annotated.gtf > $GENOME.reliable_transcripts_proteins.txt && \
 
@@ -744,7 +785,7 @@ if [ -e transcripts_merge.success ] && [ -e protein2genome.align.success ] && [ 
       --genome $GENOMEFILE \
       --mito $MITO_CTG_LIST_FILE \
       --transdecoder <(echo "") \
-      --pwms $GENOME.coding.pwm \
+      $SPLICE_MODEL_ARGS \
       1>combine.out 2>&1 && \
   mv $GENOME.u.gff.tmp $GENOME.u.gff && \
   mv $GENOME.unused_proteins.gff.tmp $GENOME.unused_proteins.gff && \
@@ -763,7 +804,7 @@ if [ -e transcripts_merge.success ] && [ -e protein2genome.align.success ] && [ 
 #here we process proteins that did not match to any transcripts -- we derive CDS-based transcripts from them
   if [ -s $GENOME.unused_proteins.gff ];then
     log "Filtering unused protein only loci" && \
-    score_transcripts_with_hmms.pl <(perl -F'\t' -ane '$F[2]="transcript" if($F[2] eq "gene");print join("\t",@F);' $GENOME.unused_proteins.gff) $GENOMEFILE $GENOME.coding.pwm $GENOME.neg.pwm $EXON_BASES 1>$GENOME.protein_splice_scores.txt 2>/dev/null && \
+    score_splice_sites <(perl -F'\t' -ane '$F[2]="transcript" if($F[2] eq "gene");print join("\t",@F);' $GENOME.unused_proteins.gff) $GENOME.protein_splice_scores.txt 2>/dev/null && \
     perl -F'\t' -ane 'BEGIN{
       open(FILE,"'$GENOME'.num_introns.txt");
       $index = 2;
@@ -883,7 +924,7 @@ if [ -e transcripts_merge.success ] && [ -e protein2genome.align.success ] && [ 
       --annotated $GENOME.protref.all.annotated.class.gff \
       --genome $GENOMEFILE \
       --transdecoder $GENOME.fixed_cds.txt \
-      --pwms $GENOME.coding.pwm \
+      $SPLICE_MODEL_ARGS \
       --names <(perl -F'\t' -ane '{if($F[2] eq "transcript"){print "$1 $3\n" if($F[8] =~ /transcript_id "(\S+)"; gene_id "(\S+)"; oId "(\S+)";/);}}'  $GENOME.all.combined.gtf) \
       --mito $MITO_CTG_LIST_FILE \
       --final_pass \
@@ -980,7 +1021,7 @@ if [ -e merge.success ] && [ ! -e ab_initio.success ] && [ $AB_INITIO -gt 0 ];th
         --annotated <(cat <(gffread -F --nids <(perl -F'\t' -ane '{if($F[8]=~/transcript_id "(\S+)";(.+) class_code "(=|k)";/){print "$1\n"}}' $GENOME.snapref.annotated.gtf) $GENOME.protref.all.annotated.class.gff) <(gffread -F $GENOME.snapref.annotated.gtf| perl -F'\t' -ane '{if($F[2] eq "transcript"){$flag=($F[8] =~ /class_code=(k|=)/)?1:0;} $F[8]=~s/geneID=XLOC_/geneID=AXLOC_/;$F[8]=~s/xloc=XLOC_/xloc=AXLOC_/;print join("\t",@F) if($flag);}')) \
         --genome $GENOMEFILE \
         --transdecoder $GENOME.fixed_cds.txt \
-        --pwms $GENOME.coding.pwm \
+        $SPLICE_MODEL_ARGS \
         --names <(perl -F'\t' -ane '{if($F[2] eq "transcript"){print "$1 $3\n" if($F[8] =~ /transcript_id "(\S+)"; gene_id "(\S+)"; oId "(\S+)";/);}}'  $GENOME.all.combined.gtf) \
         --mito $MITO_CTG_LIST_FILE \
         --final_pass \
