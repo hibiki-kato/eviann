@@ -999,7 +999,7 @@ for my $locus(keys %transcripts_cds_loci){
         }
 
 #check the CDS if the transcript is contained, skip if the CDS has been output
-        if($source eq "EviAnnP"){
+        if($source eq "EviAnnP" || $source eq "EviAnnE"){
           my $intron_chain;
           if($transcript_cds_start_index<$transcript_cds_end_index){
             my @gff_fields=split(/\t/,${$transcript_gff{$t}}[$transcript_cds_start_index]);
@@ -1025,7 +1025,7 @@ for my $locus(keys %transcripts_cds_loci){
 
 #output transcript
         $transcript_index++;
-        $mrna_transcript_index++ if($source eq "StringTie");
+        $mrna_transcript_index++ if($source eq "StringTie" && $class =~/(=|k)/);
         print "DEBUG output transcript $t class $transcript_class{$t} protein $transcript_cds{$t}\n";
         my $evidence_type="complete";
         $evidence_type="protein_only" if($source eq "EviAnnP");
@@ -1116,12 +1116,16 @@ for my $locus(keys %transcripts_cds_loci){
   if(scalar(@output)>0){
     my $dir_factor=0;
     $dir_factor=0.5 if($gff_fields[6] eq "-");
-    $gene_record_k{$gff_fields[0]." ".($locus_start+$dir_factor)}="$gff_fields[0]\tEviAnn\tgene\t$locus_start\t$locus_end\t".join("\t",@gff_fields[5..7])."\tID=$geneID;geneID=$geneID;gene_biotype=protein_coding\n".join("\n",@output)."\n";
-    push(@gene_records_k,$gff_fields[0]." ".($locus_start+$dir_factor));
-    push(@outputLOCchr,$gff_fields[0]);
-    push(@outputLOCbeg,$locus_start);
-    push(@outputLOCend,$locus_end);
-    push(@outputLOCdir,$gff_fields[6]);
+    if(not(defined($gene_record_k{$gff_fields[0]." ".($locus_start+$dir_factor)})) || (defined($gene_record_k{$gff_fields[0]." ".($locus_start+$dir_factor)}) && $geneID =~ /^XLOC/)){
+      $gene_record_k{$gff_fields[0]." ".($locus_start+$dir_factor)}="$gff_fields[0]\tEviAnn\tgene\t$locus_start\t$locus_end\t".join("\t",@gff_fields[5..7])."\tID=$geneID;geneID=$geneID;gene_biotype=protein_coding\n".join("\n",@output)."\n";
+      push(@gene_records_k,$gff_fields[0]." ".($locus_start+$dir_factor));
+      push(@outputLOCchr,$gff_fields[0]);
+      push(@outputLOCbeg,$locus_start);
+      push(@outputLOCend,$locus_end);
+      push(@outputLOCdir,$gff_fields[6]);
+    }else{
+      print "DEBUG WARNING: Ignoring $gff_fields[0]\tEviAnn\tgene\t$locus_start\t$locus_end\t".join("\t",@gff_fields[5..7])."\tID=$geneID;geneID=$geneID;gene_biotype=protein_coding\n".join("\n",@output)."\n";
+    }
   }
   #print $gff_fields[0]." ".($locus_start+$dir_factor),"\n",$gene_record_k{$gff_fields[0]." ".($locus_start+$dir_factor)};
 }

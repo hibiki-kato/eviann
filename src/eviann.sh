@@ -1,6 +1,6 @@
 #!/bin/bash
 #this pipeline generates genome annotation using hisat2, Stringtie2 and maker
-PROTEINFILE="$PWD/uniprot_sprot.fasta"
+PROTEINFILE="na"
 PLOIDY=2
 GENOMEFILE="na"
 CDSFILE="na"
@@ -507,22 +507,7 @@ if [ -e transcripts_merge.success ] && [ -e protein2genome.align.success ] && [ 
   if [ ! -s $GENOME.merged.gtf ];then
     error_exit "No transcripts useful for annotation, please check your inputs!"
   fi && \
-#we fix suspect introns in the protein alignment files.  If an intron has never been seen before, switch it to the closest one that has been seen
-  if [ -s $CDSFILE ] && [ -s $GENOME.$PROTEIN.uniq.palign.gff ];then
-    log "Using external CDSs and protein alignments" && \
-    gffread -F $GENOME.$PROTEIN.uniq.palign.gff \
-      <(perl -F'\t' -ane 'next if($F[0] =~/^#/);$F[6]="+" if(not($F[6] eq "+") && not($F[6] eq "-")); if($F[2] eq "CDS") { print join("\t",@F); $F[2]="exon";print join("\t",@F); }'  $CDSFILE | \
-        gffread -F | \
-        perl -F'\t' -ane '{chomp($F[8]);if($F[2] eq "mRNA" || $F[2] eq "transcript"){$pos=($F[4]+$F[3])/2;@f=split(/;/,$F[8]);($junk,$id)=split(/=/,$f[0]);$id.=":$F[0]:$pos"."_EXTERNAL";}elsif(uc($F[2]) eq "CDS"){$F[2]=uc($F[2]); print join("\t",@F[0..7]),"\tParent=$id\n";$F[2]="exon";print join("\t",@F[0..7]),"\tParent=$id\n";}}' | \
-        gffread -F | \
-        perl -F'\t' -ane '{next if($F[0] =~/^#/);chomp($F[8]);if($F[2] eq "transcript"){$F[2]="gene";$F[8].=";gene$F[8];identity=100.00;similarity=100.00";}print join("\t",@F),"\n";}') > $GENOME.palign.fixed.gff.tmp && \
-    mv $GENOME.palign.fixed.gff.tmp $GENOME.palign.fixed.gff && \
-    cat $PROTEIN.uniq \
-      <(perl -F'\t' -ane 'next if($F[0] =~/^#/);$F[6]="+" if(not($F[6] eq "+") && not($F[6] eq "-")); print join("\t",@F) if($F[2] eq "CDS");' $CDSFILE | \
-      gffread -y /dev/stdout -g $GENOMEFILE) > $PROTEIN.all.tmp && \
-    mv $PROTEIN.all.tmp $PROTEIN.all && \
-    PROTEINFILE=$PROTEIN.all 
-  elif [ -s $GENOME.$PROTEIN.uniq.palign.gff ];then
+  if [ -s $GENOME.$PROTEIN.uniq.palign.gff ];then
     log "Using protein alignments" && \
     gffread -F  $GENOME.$PROTEIN.uniq.palign.gff > $GENOME.palign.fixed.gff.tmp && \
     mv $GENOME.palign.fixed.gff.tmp $GENOME.palign.fixed.gff 
@@ -530,14 +515,15 @@ if [ -e transcripts_merge.success ] && [ -e protein2genome.align.success ] && [ 
     log "Using external CDSs only" && \
     perl -F'\t' -ane 'next if($F[0] =~/^#/);$F[6]="+" if(not($F[6] eq "+") && not($F[6] eq "-")); if($F[2] eq "CDS") { print join("\t",@F); $F[2]="exon";print join("\t",@F); }'  $CDSFILE | \
       gffread -F | \
-      perl -F'\t' -ane '{chomp($F[8]);if($F[2] eq "mRNA" || $F[2] eq "transcript"){$pos=($F[4]+$F[3])/2;@f=split(/;/,$F[8]);($junk,$id)=split(/=/,$f[0]);$id.=":$F[0]:$pos"."_EXTERNAL";}elsif(uc($F[2]) eq "CDS"){$F[2]=uc($F[2]); print join("\t",@F[0..7]),"\tParent=$id\n";$F[2]="exon";print join("\t",@F[0..7]),"\tParent=$id\n";}}' | \
+      perl -F'\t' -ane '{chomp($F[8]);if($F[2] eq "mRNA" || $F[2] eq "transcript"){$pos=($F[4]+$F[3])/2;@f=split(/;/,$F[8]);($junk,$id)=split(/=/,$f[0]);$id.=":$F[0]:$pos";}elsif(uc($F[2]) eq "CDS"){$F[2]=uc($F[2]); print join("\t",@F[0..7]),"\tParent=$id\n";$F[2]="exon";print join("\t",@F[0..7]),"\tParent=$id\n";}}' | \
       gffread -F | \
       perl -F'\t' -ane '{next if($F[0] =~/^#/);chomp($F[8]);if($F[2] eq "transcript"){$F[2]="gene";$F[8].=";gene$F[8];identity=100.00;similarity=100.00";}print join("\t",@F),"\n";}' > $GENOME.palign.fixed.gff.tmp && \
     mv $GENOME.palign.fixed.gff.tmp $GENOME.palign.fixed.gff && \
-    perl -F'\t' -ane 'next if($F[0] =~/^#/);$F[6]="+" if(not($F[6] eq "+") && not($F[6] eq "-")); print join("\t",@F) if($F[2] eq "CDS");' $CDSFILE | \
-      gffread -y $PROTEIN.cds.tmp -g $GENOMEFILE && \
+    gffread -y $PROTEIN.cds.tmp -g $GENOMEFILE $CDSFILE && \
     mv $PROTEIN.cds.tmp $PROTEIN.cds && \
     PROTEINFILE=$PROTEIN.cds 
+  else
+    error_exit "No protein alignments or external CDSs found, please check your inputs!"
   fi
 
 #here we fix missing or incorrect orientations in the GTF transcripts file
@@ -820,12 +806,43 @@ if [ -e transcripts_merge.success ] && [ -e protein2genome.align.success ] && [ 
     fi
     rm -rf $GENOME.lncRNA.fa $GENOME.lncRNA.u.blastp pipeliner.*.cmds $GENOME.lncRNA.fa.transdecoder_dir  $GENOME.lncRNA.fa.transdecoder_dir.__checkpoints $GENOME.lncRNA.fa.transdecoder_dir.__checkpoints_longorfs transdecoder.LongOrfs.out $GENOME.lncRNA.fa.transdecoder.{cds,pep} blastp1.out transdecoder.Predict.out 
   fi
+
   log "Working on final merge" && \
 #these are extra protein copies for "j" transcripts
   gffread -T --ids <(perl -F'\t' -ane '{if($F[8]=~/transcript_id "(\S+)"; (.+) cmp_ref "(\S+)"; class_code "j";/){print "$3\n";}}' $GENOME.protref.spliceFiltered.annotated.gtf) $GENOME.palign.fixed.gff |\
   gffread -T --nids <(perl -F'\t' -ane '{if($F[8]=~/ID=(\S+);geneID=/){print "$1\n";}}' $GENOME.best_unused_proteins.gff) |\
   perl -F'\t' -ane '{$F[1]="EviAnnP";print join("\t",@F)}' > $GENOME.j_proteins.gtf.tmp && \
   mv $GENOME.j_proteins.gtf.tmp $GENOME.j_proteins.gtf && \
+
+#here if we have external CDSs and proteins we figure out which ones do not overlap with annotated genes or best unused proteins, and add them as EXTERNAL
+  if [ -s $CDSFILE ] && [ -s $GENOME.$PROTEIN.uniq.palign.gff ];then
+    log "Using external CDSs and protein alignments: disabling ab initio CDS finding" && \
+    AB_INITIO=0 && \
+    perl -F'\t' -ane 'next if($F[0] =~/^#/);if($F[2] eq "CDS") { print join("\t",@F); $F[2]="exon";print join("\t",@F); }'  $CDSFILE | \
+      gffread -F -J -g $GENOMEFILE | \
+      perl -F'\t' -ane '{chomp($F[8]);if($F[2] eq "mRNA" || $F[2] eq "transcript"){$pos=($F[4]+$F[3])/2;@f=split(/;/,$F[8]);($junk,$id)=split(/=/,$f[0]);$id.=":$F[0]:$pos"."_EXTERNAL";}elsif(uc($F[2]) eq "CDS"){$F[2]=uc($F[2]); print join("\t",@F[0..7]),"\tParent=$id\n";$F[2]="exon";print join("\t",@F[0..7]),"\tParent=$id\n";}}' | \
+      gffread -F | \
+      perl -F'\t' -ane '{next if($F[0] =~/^#/);chomp($F[8]);$F[1]="EviAnnE";if($F[2] eq "transcript"){$F[2]="gene";$F[8].=";gene$F[8];identity=100.00;similarity=100.00";}print join("\t",@F),"\n";}' > $GENOME.palign.ext.gff.tmp && \
+    mv $GENOME.palign.ext.gff.tmp $GENOME.palign.ext.gff && \
+    gffread -y $PROTEIN.extra.tmp -g $GENOMEFILE $CDSFILE && \
+    cat $PROTEIN.uniq >> $PROTEIN.extra.tmp && \
+    mv $PROTEIN.extra.tmp $PROTEIN.all && \
+    PROTEINFILE=$PROTEIN.all
+    #here we figure out which external CDSs overlap with complete annotations and then remove them
+    gffcompare -T -r <(cat $GENOME.k.gff $GENOME.best_unused_proteins.gff) -o externalk $GENOME.palign.ext.gff && \
+    #we do not want to add externals that match transcripts to the transcript file (best unused proteins)
+    gffcompare -T -r $GENOME.abundanceFiltered.spliceFiltered.gtf -o externalt $GENOME.palign.ext.gff && \
+    gffread -F --keep-exon-attrs --ids <(perl -F'\t' -ane '{if($F[8]=~/transcript_id "(\S+)";.+class_code "(u|p|o|x|s)";/){print "$1\n"}}' externalk.annotated.gtf ) $GENOME.palign.ext.gff | \
+      tee -a $GENOME.palign.fixed.gff |\
+      gffread -F --keep-exon-attrs --nids <(perl -F'\t' -ane '{if($F[8]=~/transcript_id "(\S+)";.+class_code "(c|=)";/){print "$1\n"}}' externalt.annotated.gtf ) | \
+      perl -F'\t' -ane '{$F[2]="transcript" if($F[2] eq "gene");print join("\t",@F)}' >> $GENOME.best_unused_proteins.gff && \
+    #remove the unreliable "U" CDSs that match more reliable externals
+    gffcompare -T -r $GENOME.palign.ext.gff $GENOME.u.cds.gff -o externalu && \
+    mv $GENOME.u.cds.gff $GENOME.u.cds.gff.bak && \
+    gffread -F --keep-exon-attrs --nids <(perl -F'\t' -ane '{if($F[8]=~/transcript_id "(\S+)";.+class_code "(=|k|c|j)";/){print "$1\n"}}' externalu.annotated.gtf ) $GENOME.u.cds.gff.bak > $GENOME.u.cds.gff.tmp && \
+    mv $GENOME.u.cds.gff.tmp $GENOME.u.cds.gff && \
+    rm -f external?.annotated.gtf external?.{loci,stats,tracking} $GENOME.palign.ext.gff 
+  fi
 
 #here we combine all transcripts, adding CDSs that did not match any transcript to the transcripts file
   if [ -s $GENOME.best_unused_proteins.gff ];then
@@ -1007,7 +1024,7 @@ if [ -e merge.success ] && [ ! -e loci.success ];then
     awk -F'\t' '{if($3=="locus"){split($9,a,";");print substr(a[1],5)" "substr(a[2],13)}}' > $GENOME.locus_transcripts.tmp && \
   mv $GENOME.locus_transcripts.tmp $GENOME.locus_transcripts && \
   mv $GENOME.k.std.gff.tmp $GENOME.k.std.gff && \
-  gffread -F --keep-exon-attrs --keep-genes --sort-alpha <(sed 's/class=.;//' $GENOME.k.std.gff | reassign_transcripts.pl $GENOME.locus_transcripts) $GENOME.u.gff|\
+  gffread -F --keep-exon-attrs --keep-genes --sort-alpha <(cat $GENOME.k.std.gff | reassign_transcripts.pl $GENOME.locus_transcripts) $GENOME.u.gff|\
     awk -F '\t' '{if($0 ~ /^# gffread/){print "# EviAnn automated annotation"}else{if($3!=prev){counter=1}if($9 ~ /^Parent=/){print $0";ID="substr($9,8)":"$3":"counter;counter++;}else{print $0}prev=$3;}}' > $GENOME.gff.tmp && \
   mv $GENOME.gff.tmp $GENOME.gff  && \
   touch loci.success && rm -f pseudo_detect.success functional.success || error_exit "Merging transcript and protein evidence failed."
