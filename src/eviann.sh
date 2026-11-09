@@ -202,7 +202,7 @@ do
             set -x
             ;;
         --version)
-            echo "version 2.0.6"
+            echo "version 2.0.8"
             exit 0
             ;;
         --debug)
@@ -779,8 +779,7 @@ if [ -e transcripts_merge.success ] && [ -e protein2genome.align.success ] && [ 
         $GENOME.unused_proteins.spliceFiltered.gff \
         <(gffread -V -x /dev/stdout -g $GENOMEFILE $GENOME.unused_proteins.spliceFiltered.gff | \
           $UFASTA one | \
-          awk '{if($1 ~ /^>/){name=substr($1,2)}else{if(length($1)%3 == 0) names[$1]=names[$1]" "name}}END{for(a in names){n=split(names[a],b," ");print b[1]" "n}}'\
-        ) \
+          awk '{if($1 ~ /^>/){name=substr($1,2);split(name,coord,":");}else{if(length($1)%3 == 0){k=coord[2]":"coord[3]":"$1;names[k]=names[k]" "name;}}}END{for(a in names){n=split(names[a],b," ");print b[1]" "n}}') \
         $GENOME.k.gff $MITO_CTG_LIST_FILE \
       > $GENOME.best_unused_proteins.gff.tmp && \
     mv $GENOME.best_unused_proteins.gff.tmp $GENOME.best_unused_proteins.gff && \
@@ -958,7 +957,7 @@ if [ -e merge.success ] && [ ! -e ab_initio.success ] && [ $AB_INITIO -gt 0 ];th
           $size += length($_);
           print OUT $_, "\n";
         }' && \
-    gffread -T \
+    gffread -i $MAX_INTRON -T \
       <(ls batch_*.fasta | xargs -P $((NUM_THREADS/4+1)) -I {} bash -c 'snap -lcmask -min-score 0 -plus -gff -quiet Org.hmm "{}" 1>"{}.plus.gff" 2>/dev/null' && \
         cat batch_*.fasta.plus.gff |perl -F'\t' -ane '{$F[0]=(split(/\s/,$F[0]))[0];$F[2]="exon";chomp($F[8]);$F[8]="transcript_id \"$F[8]f\"\n";print join("\t",@F)}') \
       <(ls batch_*.fasta | xargs -P $((NUM_THREADS/4+1)) -I {} bash -c 'snap -lcmask -min-score 0 -minus -gff -quiet Org.hmm "{}" 1>"{}.minus.gff" 2>/dev/null' && \
